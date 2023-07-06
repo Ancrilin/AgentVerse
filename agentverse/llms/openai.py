@@ -1,4 +1,6 @@
 import logging
+import numpy as np
+import time
 import os
 from typing import Dict, List, Optional, Union
 
@@ -8,6 +10,8 @@ from agentverse.llms.base import LLMResult
 
 from . import llm_registry
 from .base import BaseChatModel, BaseCompletionModel, BaseModelArgs
+
+logger = logging.getLogger(__name__)
 
 try:
     import openai
@@ -125,3 +129,21 @@ class OpenAIChat(BaseChatModel):
             recv_tokens=response["usage"]["completion_tokens"],
             total_tokens=response["usage"]["total_tokens"],
         )
+
+
+def get_embedding(text: str, attempts=3) -> np.array:
+    attempt = 0
+    while attempt < attempts:
+        try:
+            text = text.replace("\n", " ")
+            embedding = openai.Embedding.create(
+                input=[text], model="text-embedding-ada-002"
+            )["data"][0]["embedding"]
+            return tuple(embedding)
+        except Exception as e:
+            attempt += 1
+            logger.error(f"Error {e} when requesting openai models. Retrying")
+            time.sleep(10)
+    logger.warning(
+        f"get_embedding() failed after {attempts} attempts. returning empty response"
+    )
